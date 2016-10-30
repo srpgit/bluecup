@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <extension
+         point="org.eclipse.ui.newWizards">
+      <category
+            name="Module Generator"
+            id="module-gen-plugin">
+      </category>
+      <wizard
+            name="Dynamic Template Module Generator"
+            icon="icons/icon.png"
+            category="module-gen-plugin"
+            class="modulegenplugin.wizards.DynamicTemplateWizard"
+            id="modulegenplugin.wizards.DynamicTemplateWizard">
+      </wizard>
+   </extension>
+
+</plugin>
