@@ -12,8 +12,8 @@
             name="Dynamic Template Module Generator"
             icon="icons/icon.png"
             category="module-gen-plugin"
-            class="modulegenplugin.wizards.DynamicTemplateWizard"
-            id="modulegenplugin.wizards.DynamicTemplateWizard">
+            class="modulegenplugin.wizards.dynamic.DynamicTemplateWizard"
+            id="modulegenplugin.wizards.dynamic.DynamicTemplateWizard">
       </wizard>
    </extension>
 

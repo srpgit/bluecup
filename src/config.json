@@ -1,6 +1,21 @@
-[
-	"/src/main/java/",
-	"/src/main/java",
-	"/src/",
-	"/src"
-]
+{
+	input_params : [ {
+		name : 'modulename',
+		regex : '[a-z]{1,15}',
+		tip : '模块名称全小写形式'
+	}, {
+		name : 'ModuleName',
+		regex : '[A-Z][a-z]{1,14}',
+		tip : '模块名称分隔单词首字母大写形式'
+	} ],
+	define_params : {
+		name : '${modulename}',
+		Action : '${ModuleName}Action',
+		IService : 'I${ModuleName}Service',
+		iService : 'i${ModuleName}Service',
+		Service : '${ModuleName}Service',
+		IDao : 'I${ModuleName}Dao',
+		Dao : '${ModuleName}Dao',
+		iDao : 'i${ModuleName}Dao'
+	}
+}

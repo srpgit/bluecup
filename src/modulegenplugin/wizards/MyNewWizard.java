@@ -13,15 +13,15 @@ import org.eclipse.ui.IWorkbench;
 
 import com.primesoft.sfti.SimpleFileTemplateImpl;
 
-public abstract class IMyNewWizard extends Wizard implements INewWizard {
-	protected IModulePage page;
-	protected ISelection selection;
+public abstract class MyNewWizard extends Wizard implements INewWizard {
+	protected MyWizardPage page;
 	protected IWorkbench workbench;
+	protected ISelection selection;
 
 	@Override
 	public void init(IWorkbench paramIWorkbench, IStructuredSelection paramIStructuredSelection) {
-		this.selection = paramIStructuredSelection;
 		this.workbench = paramIWorkbench;
+		this.selection = paramIStructuredSelection;
 	}
 
 	@Override

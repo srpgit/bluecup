@@ -1,4 +1,4 @@
-package modulegenplugin.wizards;
+package modulegenplugin.wizards.dynamic;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -6,27 +6,19 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
-import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jdt.core.IPackageFragment;
-import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jface.dialogs.IDialogPage;
 import org.eclipse.jface.resource.ImageDescriptor;
-import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.jface.viewers.IStructuredSelection;
-import org.eclipse.jface.wizard.WizardPage;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
@@ -42,48 +34,42 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.dialogs.ContainerSelectionDialog;
 
-import com.alibaba.fastjson.JSONArray;
 import com.primesoft.sfti.SimpleFileTemplateImpl;
 import com.primesoft.sfti.Util;
 
+import modulegenplugin.component.TidySelection;
+import modulegenplugin.wizards.MyWizardPage;
+import modulegenplugin.wizards.dynamic.template.Template;
+
 /**
- * The "New" wizard page allows setting the container for the new file as well as the file name. The
- * page will only accept file name without the extension OR with the extension that matches the
- * expected one (mpe).
+ * The "New" wizard page allows setting the container for the new file as well
+ * as the file name. The page will only accept file name without the extension
+ * OR with the extension that matches the expected one (mpe).
  */
-
-public class DynamicTemplatePage extends WizardPage implements IModulePage {
+// TODO 加载插件时，就可以得到systemvars。加载模版包时，重新生成这个模版所需输入的参数。点下一步时，根据输入的 参数重新生成参数map
+public class DynamicTemplatePage extends MyWizardPage {
 	private final String templatesFile = "templates.zip";
-
 	private Text containerText;
-
 	private Text moduleName;
-
 	private Text externalTemplatesText;
-
 	private Map<String, Template> externalemplates;
-
 	private Button useExternal;
-
 	private Combo combo;
-
 	private Map<String, Template> templates;
 
-	private ISelection selection;
-
-	private static ImageDescriptor img = ImageDescriptor.createFromURL(Thread.currentThread().getContextClassLoader().getResource("icon.png"));
+	private static ImageDescriptor img = ImageDescriptor
+			.createFromURL(Thread.currentThread().getContextClassLoader().getResource("icon.png"));
 
 	/**
 	 * Constructor for SampleNewWizardPage.
 	 * 
 	 * @param pageName
 	 */
-	public DynamicTemplatePage(ISelection selection) {
+	public DynamicTemplatePage(TidySelection selection) {
 		super("");
 		setTitle("Dynamic Template Module Generator");
 		setDescription("Generate a new module or file system by the selected template ");
 		setImageDescriptor(img);
-		this.selection = selection;
 		this.templates = new HashMap<String, Template>();
 		this.externalemplates = new HashMap<String, Template>();
 	}
@@ -189,49 +175,20 @@ public class DynamicTemplatePage extends WizardPage implements IModulePage {
 			}
 		});
 
-		initialize();
-		loadTemplates(this.templates, Thread.currentThread().getContextClassLoader().getResourceAsStream(templatesFile), "default");
+		loadTemplates(this.templates, Thread.currentThread().getContextClassLoader().getResourceAsStream(templatesFile),
+				"default");
 		dialogChanged();
 		setControl(container);
 	}
 
 	/**
-	 * Tests if the current workbench selection is a suitable container to use.
-	 */
-
-	private void initialize() {
-		if (selection != null && selection.isEmpty() == false && selection instanceof IStructuredSelection) {
-			IStructuredSelection ssel = (IStructuredSelection) selection;
-			if (ssel.size() > 1)
-				return;
-			Object obj = ssel.getFirstElement();
-
-			String text = "";
-			if (obj instanceof IPackageFragment) {
-				IPackageFragment ipf = (IPackageFragment) obj;
-				text = ipf.getPath().makeAbsolute().toString();
-			} else if (obj instanceof IPackageFragmentRoot) {
-				IPackageFragmentRoot ipf = (IPackageFragmentRoot) obj;
-				text = ipf.getPath().makeAbsolute().toString();
-			} else if (obj instanceof IResource) {
-				IResource ir = (IResource) obj;
-				if (ir instanceof IFolder) {
-					text = ir.getFullPath().toString();
-				} else {
-					text = ir.getParent().getFullPath().toString();
-				}
-			}
-
-			containerText.setText(text);
-		}
-	}
-
-	/**
-	 * Uses the standard container selection dialog to choose the new value for the container field.
+	 * Uses the standard container selection dialog to choose the new value for
+	 * the container field.
 	 */
 
 	private void handleBrowse() {
-		ContainerSelectionDialog dialog = new ContainerSelectionDialog(getShell(), ResourcesPlugin.getWorkspace().getRoot(), false, "Select Parent Folder");
+		ContainerSelectionDialog dialog = new ContainerSelectionDialog(getShell(),
+				ResourcesPlugin.getWorkspace().getRoot(), false, "Select Parent Folder");
 		if (dialog.open() == ContainerSelectionDialog.OK) {
 			Object[] result = dialog.getResult();
 			if (result.length == 1) {
@@ -321,55 +278,9 @@ public class DynamicTemplatePage extends WizardPage implements IModulePage {
 			throw new RuntimeException("No tempalte is selected");
 		}
 
-		String containerName = getContainerName();
-		IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
-		IResource resource = root.findMember(new Path(containerName));
-
-		String path = resource.getFullPath().toString();
-
-		// package name starts from header
-		List<Object> headers = new ArrayList<Object>();
-		// read from config.json
-		InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("config.json");
-		// if config file not exists,user defaults
-		if (is == null) {
-			headers.add("/src/main/java/");
-			headers.add("/src/main/java");
-			headers.add("/src/");
-			headers.add("/src");
-		} else {
-			headers = JSONArray.parseArray(Util.read(is, "utf-8"));
-		}
-
-		for (Object header : headers) {
-			String headerStr = String.valueOf(header);
-			int index = path.indexOf(headerStr);
-			if (index != -1) {
-				path = path.substring(index + headerStr.length());
-				break;
-			}
-		}
-
-		String parentPackege = path.replace("/", ".");
-		if (parentPackege.length() > 0) {
-			parentPackege += ".";
-		}
-
-		String ModuleName = getModuleName();
-
-		String firstLower = ModuleName.substring(0, 1).toLowerCase() + ModuleName.substring(1);
-
 		// system variables
 		Map<String, String> systemVars = new HashMap<String, String>();
-
-		systemVars.put("ModuleName", ModuleName);
-		systemVars.put("moduleName", firstLower);
-		systemVars.put("modulename", ModuleName.toLowerCase());
-		systemVars.put("MODULENAME", ModuleName.toUpperCase());
-		systemVars.put("MN", Util.getCaptial(ModuleName));
-		systemVars.put("mn", systemVars.get("MN").toLowerCase());
-		systemVars.put("parentpackage", parentPackege);
-		systemVars.put("package", parentPackege + systemVars.get("modulename"));
+		systemVars.put("project_path", this.selection.getProjectPath());
 
 		// result params
 		Map<String, String> params = new HashMap<String, String>();
