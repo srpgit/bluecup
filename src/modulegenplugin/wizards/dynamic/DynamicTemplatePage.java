@@ -6,18 +6,17 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Enumeration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.regex.Pattern;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.Path;
-import org.eclipse.jface.dialogs.IDialogPage;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyEvent;
@@ -39,46 +38,44 @@ import com.primesoft.sfti.Util;
 
 import modulegenplugin.component.TidySelection;
 import modulegenplugin.wizards.MyWizardPage;
+import modulegenplugin.wizards.dynamic.template.InputParam;
 import modulegenplugin.wizards.dynamic.template.Template;
 
-/**
- * The "New" wizard page allows setting the container for the new file as well
- * as the file name. The page will only accept file name without the extension
- * OR with the extension that matches the expected one (mpe).
- */
-// TODO 加载插件时，就可以得到systemvars。加载模版包时，重新生成这个模版所需输入的参数。点下一步时，根据输入的 参数重新生成参数map
 public class DynamicTemplatePage extends MyWizardPage {
+	private Composite container;
 	private final String templatesFile = "templates.zip";
 	private Text containerText;
-	private Text moduleName;
 	private Text externalTemplatesText;
-	private Map<String, Template> externalemplates;
+	private Map<String, Template> externalTemplates;
 	private Button useExternal;
 	private Combo combo;
 	private Map<String, Template> templates;
+	private Map<String, String> systemVars;
+	private List<InputParamPair> inputParamPairs;
 
 	private static ImageDescriptor img = ImageDescriptor
 			.createFromURL(Thread.currentThread().getContextClassLoader().getResource("icon.png"));
 
-	/**
-	 * Constructor for SampleNewWizardPage.
-	 * 
-	 * @param pageName
-	 */
 	public DynamicTemplatePage(TidySelection selection) {
 		super("");
 		setTitle("Dynamic Template Module Generator");
 		setDescription("Generate a new module or file system by the selected template ");
 		setImageDescriptor(img);
+
 		this.templates = new HashMap<String, Template>();
-		this.externalemplates = new HashMap<String, Template>();
+		this.externalTemplates = new HashMap<String, Template>();
+		this.inputParamPairs = new ArrayList<InputParamPair>();
+		this.selection = selection;
+
+		systemVars = new HashMap<String, String>();
+		systemVars.put("project_path", this.selection.getProjectPath());
+		systemVars.put("project_name", this.selection.getProjectName());
+		systemVars.put("package_name", this.selection.getPackageName());
+		systemVars.put("node_path", this.selection.getProjectPath());
 	}
 
-	/**
-	 * @see IDialogPage#createControl(Composite)
-	 */
 	public void createControl(Composite parent) {
-		Composite container = new Composite(parent, SWT.NULL);
+		container = new Composite(parent, SWT.NULL);
 		GridLayout layout = new GridLayout();
 		container.setLayout(layout);
 		layout.numColumns = 3;
@@ -100,23 +97,16 @@ public class DynamicTemplatePage extends MyWizardPage {
 		button.setText("Browse...");
 		button.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				handleBrowse();
+				ContainerSelectionDialog dialog = new ContainerSelectionDialog(getShell(),
+						ResourcesPlugin.getWorkspace().getRoot(), false, "Select Parent Folder");
+				if (dialog.open() == ContainerSelectionDialog.OK) {
+					Object[] result = dialog.getResult();
+					if (result.length == 1) {
+						containerText.setText(((Path) result[0]).toString());
+					}
+				}
 			}
 		});
-
-		label = new Label(container, SWT.NULL);
-		label.setText("&Module Name:");
-
-		moduleName = new Text(container, SWT.BORDER | SWT.SINGLE);
-		gd = new GridData(GridData.FILL_HORIZONTAL);
-		moduleName.setLayoutData(gd);
-		moduleName.addModifyListener(new ModifyListener() {
-			public void modifyText(ModifyEvent e) {
-				dialogChanged();
-			}
-		});
-
-		label = new Label(container, SWT.NULL);
 
 		useExternal = new Button(container, SWT.CHECK);
 		useExternal.setText("External Templates:");
@@ -158,7 +148,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 				} else {
 					externalTemplatesText.setEnabled(false);
 					extButton.setEnabled(false);
-					externalemplates.clear();
+					externalTemplates.clear();
 					refreshCombo();
 				}
 			}
@@ -171,39 +161,22 @@ public class DynamicTemplatePage extends MyWizardPage {
 		combo.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				dialogChanged();
+				loadInputParams();
 			}
 		});
 
+		// empty
+		label = new Label(container, SWT.NULL);
+
 		loadTemplates(this.templates, Thread.currentThread().getContextClassLoader().getResourceAsStream(templatesFile),
 				"default");
+		loadInputParams();
 		dialogChanged();
 		setControl(container);
 	}
 
-	/**
-	 * Uses the standard container selection dialog to choose the new value for
-	 * the container field.
-	 */
-
-	private void handleBrowse() {
-		ContainerSelectionDialog dialog = new ContainerSelectionDialog(getShell(),
-				ResourcesPlugin.getWorkspace().getRoot(), false, "Select Parent Folder");
-		if (dialog.open() == ContainerSelectionDialog.OK) {
-			Object[] result = dialog.getResult();
-			if (result.length == 1) {
-				containerText.setText(((Path) result[0]).toString());
-			}
-		}
-	}
-
-	/**
-	 * Ensures that both text fields are set.
-	 */
-
 	private void dialogChanged() {
 		IResource container = ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(getContainerName()));
-		String moduleName = getModuleName();
 
 		if (getContainerName().length() == 0) {
 			updateStatus("Parent folder must be specified");
@@ -215,22 +188,6 @@ public class DynamicTemplatePage extends MyWizardPage {
 		}
 		if (!container.isAccessible()) {
 			updateStatus("Project must be writable");
-			return;
-		}
-		if (moduleName.length() == 0) {
-			updateStatus("Module name must be specified");
-			return;
-		}
-		if (!Pattern.matches("[\\w]+", moduleName)) {
-			updateStatus("Module name must only contain letter or digit");
-			return;
-		}
-		if (!Character.isLetter(moduleName.charAt(0))) {
-			updateStatus("Module name must start with letter");
-			return;
-		}
-		if (Character.isLowerCase(moduleName.charAt(0))) {
-			updateStatus("The first letter of module name must be uppercase");
 			return;
 		}
 
@@ -245,6 +202,14 @@ public class DynamicTemplatePage extends MyWizardPage {
 			updateStatus("Template file : " + templatesFile + " not found");
 			return;
 		}
+
+		for (InputParamPair ipp : inputParamPairs) {
+			if (!Util.matches(ipp.pattern, ipp.value.getText())) {
+				updateStatus(ipp.inputParam.getTip(), false);
+				return;
+			}
+		}
+
 		try {
 			is.close();
 		} catch (IOException e) {
@@ -267,10 +232,6 @@ public class DynamicTemplatePage extends MyWizardPage {
 		return containerText.getText();
 	}
 
-	public String getModuleName() {
-		return moduleName.getText();
-	}
-
 	@Override
 	public Map<String, String> getParams() throws IOException {
 		Template template = getTemplate();
@@ -278,42 +239,42 @@ public class DynamicTemplatePage extends MyWizardPage {
 			throw new RuntimeException("No tempalte is selected");
 		}
 
-		// system variables
-		Map<String, String> systemVars = new HashMap<String, String>();
-		systemVars.put("project_path", this.selection.getProjectPath());
-
 		// result params
 		Map<String, String> params = new HashMap<String, String>();
 
-		// replace system variables in config file
-		File config = template.getConfigFile();
-		if (config != null && config.exists()) {
-			Properties properties = new Properties();
-			properties.load(new FileInputStream(config));
-			Enumeration<Object> e = properties.keys();
-			Pattern pattern = SimpleFileTemplateImpl.PATTERN;
-			while (e.hasMoreElements()) {
-				String key = String.valueOf(e.nextElement());
-				// escape keys in systemVars
-				if (systemVars.containsKey(key)) {
-					continue;
-				}
-				// escape keys like ${key}
-				if (Util.matches(pattern, key)) {
-					continue;
-				}
-				String value = properties.getProperty(key);
-				// replace value
-				if (Util.matches(pattern, value)) {
-					value = Util.replaceAllParams(systemVars, value, pattern);
-				}
+		// add input params
+		for (int i = 0; i < inputParamPairs.size(); i++) {
+			InputParamPair ipp = inputParamPairs.get(i);
+			String key = ipp.name.getText();
+			String value = ipp.value.getText();
+			// can override system vars
+			systemVars.put(key, value);
+		}
 
-				params.put(key, value);
+		Pattern pattern = SimpleFileTemplateImpl.PATTERN;
+		Map<String, String> defineParams = template.getDefineParams();
+		Iterator<String> it = defineParams.keySet().iterator();
+		while (it.hasNext()) {
+			String key = it.next();
+			// ignore keys in systemVars
+			if (systemVars.containsKey(key)) {
+				continue;
 			}
+			// ignore keys like ${key}
+			if (Util.matches(pattern, key)) {
+				continue;
+			}
+			String value = defineParams.get(key);
+			// replace value
+			if (Util.matches(pattern, value)) {
+				value = Util.replaceAllParams(systemVars, value, pattern);
+			}
+
+			params.put(key, value);
 		}
 
 		// add all systemVars to params
-		Iterator<String> it = systemVars.keySet().iterator();
+		it = systemVars.keySet().iterator();
 		while (it.hasNext()) {
 			String k = it.next();
 			params.put(k, systemVars.get(k));
@@ -328,7 +289,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 		if (k.startsWith("default")) {
 			return templates.get(k);
 		} else {
-			return externalemplates.get(k);
+			return externalTemplates.get(k);
 		}
 	}
 
@@ -405,19 +366,19 @@ public class DynamicTemplatePage extends MyWizardPage {
 	private void refreshCombo() {
 		combo.removeAll();
 
-		combo.add("--choose a template--");
+		combo.add("--choose template--");
 
 		Iterator<String> it = templates.keySet().iterator();
 		while (it.hasNext()) {
 			combo.add(it.next());
 		}
 
-		it = externalemplates.keySet().iterator();
+		it = externalTemplates.keySet().iterator();
 		while (it.hasNext()) {
 			combo.add(it.next());
 		}
 
-		if (!templates.isEmpty() || externalemplates.isEmpty()) {
+		if (!templates.isEmpty() || externalTemplates.isEmpty()) {
 			combo.select(1);
 		} else {
 			combo.select(0);
@@ -425,13 +386,13 @@ public class DynamicTemplatePage extends MyWizardPage {
 	}
 
 	private void loadExternalTemplates() {
-		externalemplates.clear();
+		externalTemplates.clear();
 		refreshCombo();
 		String fileName = externalTemplatesText.getText();
 		File file = new File(fileName);
 		if (file.exists()) {
 			try {
-				loadTemplates(externalemplates, new FileInputStream(file), "external");
+				loadTemplates(externalTemplates, new FileInputStream(file), "external");
 			} catch (FileNotFoundException e1) {
 				e1.printStackTrace();
 				updateStatus("Load template file : " + fileName + " failed", true);
@@ -439,6 +400,35 @@ public class DynamicTemplatePage extends MyWizardPage {
 		} else {
 			updateStatus("Template file : " + fileName + " not found", true);
 		}
+	}
 
+	private void loadInputParams() {
+		Template template = getTemplate();
+		if (template == null) {
+			updateStatus("Selected tempalte not exists");
+			return;
+		}
+		updateStatus(null);
+		List<InputParam> inputParams = template.getInputParams();
+		if (inputParams == null) {
+			return;
+		}
+		for (InputParamPair ipp : inputParamPairs) {
+			ipp.dispose();
+		}
+		inputParamPairs.clear();
+
+		for (InputParam inputParam : inputParams) {
+			final InputParamPair ipp = new InputParamPair(container, inputParam);
+			inputParamPairs.add(ipp);
+			ipp.value.addModifyListener(new ModifyListener() {
+				@Override
+				public void modifyText(ModifyEvent arg0) {
+					dialogChanged();
+				}
+			});
+		}
+
+		dialogChanged();
 	}
 }

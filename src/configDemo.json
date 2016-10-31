@@ -10,6 +10,7 @@
 	} ],
 	define_params : {
 		name : '${modulename}',
+		package : '${package_name}',
 		Action : '${ModuleName}Action',
 		IService : 'I${ModuleName}Service',
 		iService : 'i${ModuleName}Service',

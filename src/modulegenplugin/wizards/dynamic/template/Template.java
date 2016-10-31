@@ -1,7 +1,6 @@
 package modulegenplugin.wizards.dynamic.template;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,7 +33,7 @@ public class Template {
 		File config = getConfigFile();
 		try {
 			JSONObject jo = JSONObject.parseObject(Util.read(config, "utf-8"));
-			JSONArray inputParams = jo.getJSONArray("input_inputParams");
+			JSONArray inputParams = jo.getJSONArray("input_params");
 
 			inputParmas = new ArrayList<InputParam>();
 			for (int i = 0; i < inputParams.size(); i++) {
@@ -53,7 +52,7 @@ public class Template {
 				String key = it.next();
 				defineParams.put(key, definedParams.getString(key));
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			throw new RuntimeException("Read config file of module 【" + moduleName + "】failed");
 		}
 	}
@@ -83,7 +82,7 @@ public class Template {
 		if (configFile != null && configFile.exists()) {
 			return configFile;
 		}
-		configFile = new File(root + "/template/");
+		configFile = new File(root + "/config.json");
 		if (configFile.exists()) {
 			return configFile;
 		}
