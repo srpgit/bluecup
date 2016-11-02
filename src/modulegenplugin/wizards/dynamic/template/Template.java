@@ -29,13 +29,21 @@ public class Template {
 	public Template(String moduleFolder) {
 		root = moduleFolder;
 		moduleName = root.substring(root.lastIndexOf(File.separator) + 1);
+		inputParmas = new ArrayList<InputParam>();
+		defineParams = new HashMap<String, String>();
+
 		getTemplate();
 		File config = getConfigFile();
 		try {
 			JSONObject jo = JSONObject.parseObject(Util.read(config, "utf-8"));
+			if (jo == null) {
+				return;
+			}
 			JSONArray inputParams = jo.getJSONArray("input_params");
+			if (inputParams == null) {
+				return;
+			}
 
-			inputParmas = new ArrayList<InputParam>();
 			for (int i = 0; i < inputParams.size(); i++) {
 				JSONObject p = inputParams.getJSONObject(i);
 				InputParam param = new InputParam();
@@ -45,8 +53,10 @@ public class Template {
 				inputParmas.add(param);
 			}
 
-			defineParams = new HashMap<String, String>();
 			JSONObject definedParams = jo.getJSONObject("define_params");
+			if (definedParams == null) {
+				return;
+			}
 			Iterator<String> it = definedParams.keySet().iterator();
 			while (it.hasNext()) {
 				String key = it.next();

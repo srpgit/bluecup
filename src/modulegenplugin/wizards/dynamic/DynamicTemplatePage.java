@@ -28,10 +28,10 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.DirectoryDialog;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
-import org.eclipse.ui.dialogs.ContainerSelectionDialog;
 
 import com.primesoft.sfti.SimpleFileTemplateImpl;
 import com.primesoft.sfti.Util;
@@ -43,13 +43,21 @@ import modulegenplugin.wizards.dynamic.template.Template;
 
 public class DynamicTemplatePage extends MyWizardPage {
 	private Composite container;
+	private Text outputPath;
+
 	private final String templatesFile = "templates.zip";
-	private Text containerText;
+
 	private Text externalTemplatesText;
 	private Map<String, Template> externalTemplates;
-	private Button useExternal;
+	private Button useExternalTemplates;
+
+	private Text externalFolderText;
+	private Map<String, Template> externalFolder;
+	private Button useExternalFolder;
+
 	private Combo combo;
 	private Map<String, Template> templates;
+
 	private Map<String, String> systemVars;
 	private List<InputParamPair> inputParamPairs;
 
@@ -64,13 +72,22 @@ public class DynamicTemplatePage extends MyWizardPage {
 
 		this.templates = new HashMap<String, Template>();
 		this.externalTemplates = new HashMap<String, Template>();
+		this.externalFolder = new HashMap<String, Template>();
 		this.inputParamPairs = new ArrayList<InputParamPair>();
 		this.selection = selection;
 
 		systemVars = new HashMap<String, String>();
 		systemVars.put("project_path", this.selection.getProjectPath());
 		systemVars.put("project_name", this.selection.getProjectName());
-		systemVars.put("package_name", this.selection.getPackageName());
+		String packageName = this.selection.getPackageName();
+		String packageNameAutoDot = this.selection.getPackageName();
+		if (packageName == null || packageName.length() == 0) {
+			packageNameAutoDot = packageName;
+		} else {
+			packageNameAutoDot = packageName + ".";
+		}
+		systemVars.put("package_name", packageName);
+		systemVars.put("package_name_autodot", packageNameAutoDot);
 		systemVars.put("node_path", this.selection.getProjectPath());
 	}
 
@@ -80,49 +97,104 @@ public class DynamicTemplatePage extends MyWizardPage {
 		container.setLayout(layout);
 		layout.numColumns = 3;
 		layout.verticalSpacing = 9;
-		Label label = new Label(container, SWT.NULL);
-		label.setText("&Parent Folder:");
 
-		containerText = new Text(container, SWT.BORDER | SWT.SINGLE);
-		containerText.setEditable(false);
+		// choose output destination
+		Label label = new Label(container, SWT.NULL);
+		label.setText("&Destination Folder:");
+
+		outputPath = new Text(container, SWT.BORDER | SWT.SINGLE);
+		outputPath.setEditable(false);
 		GridData gd = new GridData(GridData.FILL_HORIZONTAL);
-		containerText.setLayoutData(gd);
-		containerText.addModifyListener(new ModifyListener() {
+		gd.minimumWidth = 400;
+		outputPath.setLayoutData(gd);
+		outputPath.addModifyListener(new ModifyListener() {
 			public void modifyText(ModifyEvent e) {
 				dialogChanged();
 			}
 		});
 
-		Button button = new Button(container, SWT.PUSH);
-		button.setText("Browse...");
-		button.addSelectionListener(new SelectionAdapter() {
+		final DirectoryDialog outputFolderDialog = new DirectoryDialog(container.getShell(), SWT.OPEN);
+		Button chooseOutpath = new Button(container, SWT.PUSH);
+		chooseOutpath.setText("Browse...");
+		chooseOutpath.addSelectionListener(new SelectionAdapter() {
+			@Override
 			public void widgetSelected(SelectionEvent e) {
-				ContainerSelectionDialog dialog = new ContainerSelectionDialog(getShell(),
-						ResourcesPlugin.getWorkspace().getRoot(), false, "Select Parent Folder");
-				if (dialog.open() == ContainerSelectionDialog.OK) {
-					Object[] result = dialog.getResult();
-					if (result.length == 1) {
-						containerText.setText(((Path) result[0]).toString());
-					}
+				String folder = outputFolderDialog.open();
+				if (folder != null) {
+					outputPath.setText(folder);
 				}
 			}
 		});
 
-		useExternal = new Button(container, SWT.CHECK);
-		useExternal.setText("External Templates:");
+		// external folder
+		useExternalFolder = new Button(container, SWT.CHECK);
+		useExternalFolder.setText("&Open Folder:");
+
+		externalFolderText = new Text(container, SWT.BORDER | SWT.SINGLE);
+		externalFolderText.setEditable(false);
+		externalFolderText.setEnabled(false);
+		gd = new GridData(GridData.FILL_HORIZONTAL);
+		gd.minimumWidth = 400;
+		externalFolderText.setLayoutData(gd);
+		externalFolderText.addModifyListener(new ModifyListener() {
+			public void modifyText(ModifyEvent e) {
+				dialogChanged();
+			}
+		});
+
+		final DirectoryDialog folderDialog = new DirectoryDialog(container.getShell(), SWT.OPEN);
+
+		final Button extFolderButton = new Button(container, SWT.PUSH);
+		extFolderButton.setText("Browse...");
+		extFolderButton.setEnabled(false);
+		extFolderButton.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				String fileName = folderDialog.open();
+				if (fileName != null) {
+					externalFolderText.setText(fileName);
+					loadExternalFolder();
+				}
+			}
+		});
+
+		useExternalFolder.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				if (useExternalFolder.getSelection()) {
+					externalFolderText.setEnabled(true);
+					extFolderButton.setEnabled(true);
+					if (externalFolderText.getText().length() > 0) {
+						loadExternalFolder();
+					}
+				} else {
+					externalFolderText.setEnabled(false);
+					extFolderButton.setEnabled(false);
+					externalFolder.clear();
+					refreshCombo();
+					loadInputParams();
+				}
+			}
+		});
+
+		// external zip file
+		useExternalTemplates = new Button(container, SWT.CHECK);
+		useExternalTemplates.setText("&Open Zip:");
 
 		externalTemplatesText = new Text(container, SWT.BORDER | SWT.SINGLE);
 		externalTemplatesText.setEditable(false);
 		externalTemplatesText.setEnabled(false);
 		gd = new GridData(GridData.FILL_HORIZONTAL);
+		gd.minimumWidth = 400;
 		externalTemplatesText.setLayoutData(gd);
 		externalTemplatesText.addModifyListener(new ModifyListener() {
 			public void modifyText(ModifyEvent e) {
 				dialogChanged();
 			}
 		});
+
 		final FileDialog fileDialog = new FileDialog(container.getShell(), SWT.OPEN);
 		fileDialog.setFilterExtensions(new String[] { "templates.zip", "*.zip" });
+
 		final Button extButton = new Button(container, SWT.PUSH);
 		extButton.setText("Browse...");
 		extButton.setEnabled(false);
@@ -136,10 +208,10 @@ public class DynamicTemplatePage extends MyWizardPage {
 			}
 		});
 
-		useExternal.addSelectionListener(new SelectionAdapter() {
+		useExternalTemplates.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				if (useExternal.getSelection()) {
+				if (useExternalTemplates.getSelection()) {
 					externalTemplatesText.setEnabled(true);
 					extButton.setEnabled(true);
 					if (externalTemplatesText.getText().length() > 0) {
@@ -150,6 +222,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 					extButton.setEnabled(false);
 					externalTemplates.clear();
 					refreshCombo();
+					loadInputParams();
 				}
 			}
 		});
@@ -158,6 +231,10 @@ public class DynamicTemplatePage extends MyWizardPage {
 		label.setText("&Template:");
 
 		combo = new Combo(container, SWT.READ_ONLY);
+		gd = new GridData(GridData.FILL_HORIZONTAL);
+		gd.horizontalSpan = 1;
+		gd.minimumWidth = 400;
+		combo.setLayoutData(gd);
 		combo.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -168,27 +245,37 @@ public class DynamicTemplatePage extends MyWizardPage {
 		// empty
 		label = new Label(container, SWT.NULL);
 
+		String folder = this.selection.getFolder();
+		if (folder != null) {
+			outputPath.setText(folder);
+		}
+
 		loadTemplates(this.templates, Thread.currentThread().getContextClassLoader().getResourceAsStream(templatesFile),
 				"default");
 		loadInputParams();
+
 		dialogChanged();
+
+		container.layout();
 		setControl(container);
 	}
 
 	private void dialogChanged() {
-		IResource container = ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(getContainerName()));
-
-		if (getContainerName().length() == 0) {
-			updateStatus("Parent folder must be specified");
+		String outputPath = getOutputPath();
+		if (outputPath.length() == 0) {
+			updateStatus("Unknown destination folder");
 			return;
 		}
-		if (container == null || (container.getType() & (IResource.PROJECT | IResource.FOLDER)) == 0) {
-			updateStatus("Parent folder must exist");
-			return;
-		}
-		if (!container.isAccessible()) {
-			updateStatus("Project must be writable");
-			return;
+		if (!new File(outputPath).exists()) {
+			IResource container = ResourcesPlugin.getWorkspace().getRoot().findMember(new Path(outputPath));
+			if (container == null || (container.getType() & (IResource.PROJECT | IResource.FOLDER)) == 0) {
+				updateStatus("Destination folder must exist");
+				return;
+			}
+			if (!container.isAccessible()) {
+				updateStatus("Project must be writable");
+				return;
+			}
 		}
 
 		Template template = getTemplate();
@@ -204,9 +291,11 @@ public class DynamicTemplatePage extends MyWizardPage {
 		}
 
 		for (InputParamPair ipp : inputParamPairs) {
-			if (!Util.matches(ipp.pattern, ipp.value.getText())) {
-				updateStatus(ipp.inputParam.getTip(), false);
-				return;
+			if (ipp.pattern != null) {
+				if (!Util.matches(ipp.pattern, ipp.value.getText())) {
+					updateStatus(ipp.inputParam.getTip(), false);
+					return;
+				}
 			}
 		}
 
@@ -228,8 +317,8 @@ public class DynamicTemplatePage extends MyWizardPage {
 		setPageComplete(complete);
 	}
 
-	public String getContainerName() {
-		return containerText.getText();
+	public String getOutputPath() {
+		return outputPath.getText();
 	}
 
 	@Override
@@ -238,6 +327,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 		if (template == null) {
 			throw new RuntimeException("No tempalte is selected");
 		}
+		Pattern pattern = SimpleFileTemplateImpl.PATTERN;
 
 		// result params
 		Map<String, String> params = new HashMap<String, String>();
@@ -246,12 +336,20 @@ public class DynamicTemplatePage extends MyWizardPage {
 		for (int i = 0; i < inputParamPairs.size(); i++) {
 			InputParamPair ipp = inputParamPairs.get(i);
 			String key = ipp.name.getText();
+			if (key == null) {
+				continue;
+			}
+			// remove last ':'
+			key = key.substring(0, key.length() - 1);
 			String value = ipp.value.getText();
+			// replace value
+			if (Util.matches(pattern, value)) {
+				value = Util.replaceAllParams(systemVars, value, pattern);
+			}
 			// can override system vars
 			systemVars.put(key, value);
 		}
 
-		Pattern pattern = SimpleFileTemplateImpl.PATTERN;
 		Map<String, String> defineParams = template.getDefineParams();
 		Iterator<String> it = defineParams.keySet().iterator();
 		while (it.hasNext()) {
@@ -280,17 +378,30 @@ public class DynamicTemplatePage extends MyWizardPage {
 			params.put(k, systemVars.get(k));
 		}
 
+		// ensure no value like '${xxx}'
+		it = params.keySet().iterator();
+		while (it.hasNext()) {
+			String k = it.next();
+			String v = params.get(k);
+			if (Util.matches(pattern, v)) {
+				it.remove();
+			}
+		}
+
 		return params;
 	}
 
 	@Override
 	public Template getTemplate() {
 		String k = combo.getText();
-		if (k.startsWith("default")) {
+		if (k.startsWith("[default]")) {
 			return templates.get(k);
-		} else {
+		} else if (k.startsWith("[zip]")) {
 			return externalTemplates.get(k);
+		} else if (k.startsWith("[folder]")) {
+			return externalFolder.get(k);
 		}
+		return null;
 	}
 
 	@Override
@@ -304,16 +415,19 @@ public class DynamicTemplatePage extends MyWizardPage {
 
 	@Override
 	public String getOutAbsolutePath() {
-		String containerName = getContainerName();
+		String outputPath = getOutputPath();
 		IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
-		IResource resource = root.findMember(new Path(containerName));
-		String absolutePath = resource.getLocationURI().getPath();
-		return absolutePath;
+		IResource resource = root.findMember(new Path(outputPath));
+		if (resource != null) {
+			return resource.getLocationURI().getPath();
+		} else {
+			return outputPath;
+		}
 	}
 
 	@Override
 	public String getRefreshContainer() {
-		return getContainerName();
+		return getOutputPath();
 	}
 
 	private void loadTemplates(Map<String, Template> map, InputStream is, String namespace) {
@@ -347,20 +461,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 
 		File tf = new File(tempPath + "/templates/");
 
-		// 将templates下的每个子级文件夹视为一个模块
-		File[] files = tf.listFiles(new FileFilter() {
-			@Override
-			public boolean accept(File pathname) {
-				return pathname.isDirectory();
-			}
-		});
-
-		if (files != null && files.length > 0) {
-			for (File file : files) {
-				map.put(namespace + "-> " + file.getName(), new Template(file.getAbsolutePath()));
-			}
-		}
-		refreshCombo();
+		loadFolder(map, tf, namespace);
 	}
 
 	private void refreshCombo() {
@@ -378,7 +479,12 @@ public class DynamicTemplatePage extends MyWizardPage {
 			combo.add(it.next());
 		}
 
-		if (!templates.isEmpty() || externalTemplates.isEmpty()) {
+		it = externalFolder.keySet().iterator();
+		while (it.hasNext()) {
+			combo.add(it.next());
+		}
+
+		if (!(templates.isEmpty() && externalTemplates.isEmpty() && externalFolder.isEmpty())) {
 			combo.select(1);
 		} else {
 			combo.select(0);
@@ -392,17 +498,21 @@ public class DynamicTemplatePage extends MyWizardPage {
 		File file = new File(fileName);
 		if (file.exists()) {
 			try {
-				loadTemplates(externalTemplates, new FileInputStream(file), "external");
+				loadTemplates(externalTemplates, new FileInputStream(file), "zip");
 			} catch (FileNotFoundException e1) {
 				e1.printStackTrace();
-				updateStatus("Load template file : " + fileName + " failed", true);
+				updateStatus("Load template file【" + fileName + "】failed", true);
 			}
 		} else {
-			updateStatus("Template file : " + fileName + " not found", true);
+			updateStatus("Template file【" + fileName + "】not found,can not load", true);
 		}
 	}
 
 	private void loadInputParams() {
+		for (InputParamPair ipp : inputParamPairs) {
+			ipp.dispose();
+		}
+
 		Template template = getTemplate();
 		if (template == null) {
 			updateStatus("Selected tempalte not exists");
@@ -413,9 +523,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 		if (inputParams == null) {
 			return;
 		}
-		for (InputParamPair ipp : inputParamPairs) {
-			ipp.dispose();
-		}
+
 		inputParamPairs.clear();
 
 		for (InputParam inputParam : inputParams) {
@@ -430,5 +538,39 @@ public class DynamicTemplatePage extends MyWizardPage {
 		}
 
 		dialogChanged();
+	}
+
+	private void loadExternalFolder() {
+		externalFolder.clear();
+		refreshCombo();
+		String fileName = externalFolderText.getText();
+		File file = new File(fileName);
+		if (file.exists()) {
+			try {
+				loadFolder(externalFolder, file, "folder");
+			} catch (Exception e) {
+				e.printStackTrace();
+				updateStatus("Load folder【" + fileName + "】failed", true);
+			}
+		} else {
+			updateStatus("Folder【" + fileName + "】not found,can not load", true);
+		}
+	}
+
+	private void loadFolder(Map<String, Template> map, File tf, String namespace) {
+		// 将templates下的每个子级文件夹视为一个模块
+		File[] files = tf.listFiles(new FileFilter() {
+			@Override
+			public boolean accept(File pathname) {
+				return pathname.isDirectory();
+			}
+		});
+
+		if (files != null && files.length > 0) {
+			for (File file : files) {
+				map.put("[" + namespace + "]->" + file.getName(), new Template(file.getAbsolutePath()));
+			}
+		}
+		refreshCombo();
 	}
 }

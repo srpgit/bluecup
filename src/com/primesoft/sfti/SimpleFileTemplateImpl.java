@@ -27,14 +27,20 @@ public class SimpleFileTemplateImpl {
 	/**
 	 * 使用自定义的目录和编码生成。为空则使用默认值
 	 * 
-	 * @param params 参数map
-	 * @param template 模版文件。若该文件是一个文件，则从这个文件开始。若是一个文件夹，则从其所有子文件夹开始
-	 * @param outPath 输出路径，绝对路径。一定是一个文件夹
-	 * @param charset 字符集
-	 * @param cleanOutFolder 生成时是否清空输出目录
+	 * @param params
+	 *            参数map
+	 * @param template
+	 *            模版文件。若该文件是一个文件，则从这个文件开始。若是一个文件夹，则从其所有子文件夹开始
+	 * @param outPath
+	 *            输出路径，绝对路径。一定是一个文件夹
+	 * @param charset
+	 *            字符集
+	 * @param cleanOutFolder
+	 *            生成时是否清空输出目录
 	 * @throws IOException
 	 */
-	public static void gen(Map<String, String> params, File template, String outPath, String charset, boolean cleanOutFolder) throws IOException {
+	public static void gen(Map<String, String> params, File template, String outPath, String charset,
+			boolean cleanOutFolder) throws IOException {
 		if (charset == null || charset.length() == 0) {
 			CURRENT_CHARSET = charset;
 		} else {
@@ -56,13 +62,12 @@ public class SimpleFileTemplateImpl {
 			throw new FileNotFoundException("模版文件不存在");
 		}
 
-		TEMPLATE_ROOT = template.getParentFile().getAbsolutePath();
-
 		if (cleanOutFolder) {
 			Util.delete(new File(DEFAULT_OUT_PATH));
 		}
 
 		if (template.isDirectory()) {
+			TEMPLATE_ROOT = template.getAbsolutePath();
 			File[] files = template.listFiles();
 			if (files != null) {
 				for (File f : files) {
@@ -70,6 +75,7 @@ public class SimpleFileTemplateImpl {
 				}
 			}
 		} else {
+			TEMPLATE_ROOT = template.getParentFile().getAbsolutePath();
 			gen(params, template);
 		}
 	}

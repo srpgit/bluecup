@@ -1,6 +1,7 @@
 package modulegenplugin.component;
 
 import org.eclipse.core.resources.IFolder;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.jdt.core.IPackageFragment;
@@ -21,6 +22,7 @@ public class TidySelection {
 	private String projectPath;
 	private String packageName;
 	private String nodePath;
+	private String folder;
 
 	public TidySelection(ISelection selection) {
 		this.selection = selection;
@@ -39,20 +41,26 @@ public class TidySelection {
 			if (obj instanceof IPackageFragment) {
 				IPackageFragment ipf = (IPackageFragment) obj;
 				nodePath = ipf.getPath().makeAbsolute().toString();
+				folder = nodePath;
 				packageName = ipf.getElementName();
 				projectName = ipf.getJavaProject().getElementName();
 			} else if (obj instanceof IPackageFragmentRoot) {
 				IPackageFragmentRoot ipf = (IPackageFragmentRoot) obj;
 				nodePath = ipf.getPath().makeAbsolute().toString();
+				folder = nodePath;
 				projectName = ipf.getJavaProject().getElementName();
 				packageName = "";
 			} else if (obj instanceof IResource) {
 				IResource ir = (IResource) obj;
 				projectName = ir.getProject().getName();
+				nodePath = ir.getFullPath().toString();
 				if (ir instanceof IFolder) {
-					nodePath = ir.getFullPath().toString();
+					folder = nodePath;
+				} else if (ir instanceof IProject) {
+					IProject ip = (IProject) ir;
+					folder = ip.getFullPath().toString();
 				} else {
-					nodePath = ir.getParent().getFullPath().toString();
+					folder = ir.getParent().getFullPath().toString();
 				}
 			}
 		}
@@ -72,5 +80,9 @@ public class TidySelection {
 
 	public String getNodePath() {
 		return this.nodePath;
+	}
+
+	public String getFolder() {
+		return this.folder;
 	}
 }

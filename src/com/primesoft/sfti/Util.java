@@ -65,8 +65,9 @@ public class Util {
 		if (file == null || !file.exists() || file.isDirectory()) {
 			return;
 		}
-		PrintWriter pw = new PrintWriter(new FileOutputStream(file, true));
+		PrintWriter pw = null;
 		try {
+			pw = new PrintWriter(new FileOutputStream(file, true));
 			pw.write(content);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -89,6 +90,9 @@ public class Util {
 	}
 
 	public static String replaceAllParams(Map<String, String> params, String s, Pattern pattern) {
+		if (params == null || s == null || pattern == null) {
+			return s;
+		}
 		if (!matches(pattern, s)) {
 			return s;
 		}
@@ -96,16 +100,30 @@ public class Util {
 		while (it.hasNext()) {
 			String k = it.next();
 			String v = params.get(k);
+			if (v == null) {
+				continue;
+			}
 			String regex = "\\$\\{" + k + "\\}";
-			s = s.replaceAll(regex, v);
+			try {
+				s = s.replaceAll(regex, v);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 		}
 		return s;
 	}
 
 	public static boolean matches(Pattern p, String s) {
-		Matcher m = p.matcher(s);
-		while (m.find()) {
-			return true;
+		if (s == null || p == null) {
+			return false;
+		}
+		try {
+			Matcher m = p.matcher(s);
+			while (m.find()) {
+				return true;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 		return false;
 	}
@@ -117,17 +135,17 @@ public class Util {
 
 		InputStream is = null;
 		OutputStream os = null;
-
-		if (!(des.endsWith("\\") || des.endsWith("/"))) {
-			des += "/";
-		}
-
-		new File(des).mkdirs();
-
-		ZipFile zipFile = new ZipFile(file);
-		Enumeration<? extends ZipEntry> enu = zipFile.entries();
+		ZipFile zipFile = null;
 
 		try {
+			if (!(des.endsWith("\\") || des.endsWith("/"))) {
+				des += "/";
+			}
+
+			new File(des).mkdirs();
+
+			zipFile = new ZipFile(file);
+			Enumeration<? extends ZipEntry> enu = zipFile.entries();
 			while (enu.hasMoreElements()) {
 				ZipEntry entry = enu.nextElement();
 				is = zipFile.getInputStream(entry);

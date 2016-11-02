@@ -9,7 +9,7 @@
             id="module-gen-plugin">
       </category>
       <wizard
-            name="Dynamic Template Module Generator"
+            name="Dynamic Template Generator"
             icon="icons/icon.png"
             category="module-gen-plugin"
             class="modulegenplugin.wizards.dynamic.DynamicTemplateWizard"
