@@ -30,7 +30,7 @@ public class InputParamPair {
 		}
 
 		name = new Label(parent, SWT.NULL);
-		name.setText(param.getName() + "：");
+		name.setText(param.getName() + ":");
 		name.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
 		value = new Text(parent, SWT.BORDER | SWT.SINGLE);
