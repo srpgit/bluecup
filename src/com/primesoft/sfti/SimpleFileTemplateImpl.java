@@ -107,7 +107,7 @@ public class SimpleFileTemplateImpl {
 				String content = Util.read(templateFile, CURRENT_CHARSET);
 				content = Util.replaceAllParams(params, content, PATTERN);
 
-				Util.write(newFile, content);
+				Util.write(newFile, content, CURRENT_CHARSET);
 			}
 		}
 

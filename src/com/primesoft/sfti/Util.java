@@ -7,7 +7,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Map;
@@ -61,18 +62,19 @@ public class Util {
 		return null;
 	}
 
-	public static void write(File file, String content) throws IOException {
+	public static void write(File file, String content, String charset) throws IOException {
 		if (file == null || !file.exists() || file.isDirectory()) {
 			return;
 		}
-		PrintWriter pw = null;
+		Writer writer = null;
 		try {
-			pw = new PrintWriter(new FileOutputStream(file, true));
-			pw.write(content);
+			writer = new OutputStreamWriter(new FileOutputStream(file, true), charset);
+			writer.write(content);
+			writer.flush();
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
-			close(pw);
+			close(writer);
 		}
 	}
 
