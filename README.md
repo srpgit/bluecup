@@ -2,6 +2,9 @@
 Simple file template engine for eclipse plugin
 
 ### change log
+`2016/11/7`
+* templetes without 'config.json' can be correctly loaded
+* WARN:the application will go wrong when template file is not textual 
 
 `2016/11/2`
 * fix many bugs
