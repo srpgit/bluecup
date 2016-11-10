@@ -88,7 +88,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 		}
 		systemVars.put("package_name", packageName);
 		systemVars.put("package_name_autodot", packageNameAutoDot);
-		systemVars.put("node_path", this.selection.getProjectPath());
+		systemVars.put("node_path", this.selection.getNodePath());
 	}
 
 	public void createControl(Composite parent) {
