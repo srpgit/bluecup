@@ -340,7 +340,6 @@ public class DynamicTemplatePage extends MyWizardPage {
 			// remove last ':'
 			key = key.substring(0, key.length() - 1);
 			String value = ipp.value.getText();
-			value = new String(value.getBytes(), "utf-8");
 			// replace value
 			if (Util.matches(pattern, value)) {
 				value = Util.replaceAllParams(systemVars, value, pattern);
