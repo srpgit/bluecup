@@ -90,11 +90,7 @@ public class Template {
 		if (configFile != null && configFile.exists()) {
 			return configFile;
 		}
-		configFile = new File(root + "/config.json");
-		if (configFile.exists()) {
-			return configFile;
-		}
-		throw new RuntimeException("Config file of module 【" + moduleName + "】not found");
+		return new File(root + "/config.json");
 	}
 
 	public List<InputParam> getInputParams() {
