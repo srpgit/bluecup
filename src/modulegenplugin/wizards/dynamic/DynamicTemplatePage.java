@@ -61,8 +61,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 	private Map<String, String> systemVars;
 	private List<InputParamPair> inputParamPairs;
 
-	private static ImageDescriptor img = ImageDescriptor
-			.createFromURL(Thread.currentThread().getContextClassLoader().getResource("icon.png"));
+	private static ImageDescriptor img = ImageDescriptor.createFromURL(Thread.currentThread().getContextClassLoader().getResource("icon.png"));
 
 	public DynamicTemplatePage(TidySelection selection) {
 		super("");
@@ -250,8 +249,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 			outputPath.setText(folder);
 		}
 
-		loadTemplates(this.templates, Thread.currentThread().getContextClassLoader().getResourceAsStream(templatesFile),
-				"default");
+		loadTemplates(this.templates, Thread.currentThread().getContextClassLoader().getResourceAsStream(templatesFile), "default");
 		loadInputParams();
 
 		dialogChanged();
@@ -342,6 +340,7 @@ public class DynamicTemplatePage extends MyWizardPage {
 			// remove last ':'
 			key = key.substring(0, key.length() - 1);
 			String value = ipp.value.getText();
+			value = new String(value.getBytes(), "utf-8");
 			// replace value
 			if (Util.matches(pattern, value)) {
 				value = Util.replaceAllParams(systemVars, value, pattern);
@@ -501,10 +500,10 @@ public class DynamicTemplatePage extends MyWizardPage {
 				loadTemplates(externalTemplates, new FileInputStream(file), "zip");
 			} catch (FileNotFoundException e1) {
 				e1.printStackTrace();
-				updateStatus("Load template file【" + fileName + "】failed", true);
+				updateStatus("Load template file[" + fileName + "]failed", true);
 			}
 		} else {
-			updateStatus("Template file【" + fileName + "】not found,can not load", true);
+			updateStatus("Template file[" + fileName + "]not found,can not load", true);
 		}
 	}
 
@@ -550,10 +549,10 @@ public class DynamicTemplatePage extends MyWizardPage {
 				loadFolder(externalFolder, file, "folder");
 			} catch (Exception e) {
 				e.printStackTrace();
-				updateStatus("Load folder【" + fileName + "】failed", true);
+				updateStatus("Load folder[" + fileName + "]failed", true);
 			}
 		} else {
-			updateStatus("Folder【" + fileName + "】not found,can not load", true);
+			updateStatus("Folder[" + fileName + "]not found,can not load", true);
 		}
 	}
 
